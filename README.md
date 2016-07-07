@@ -1,15 +1,19 @@
 [![Build Status](https://travis-ci.org/codedge-llc/pigeon.svg?branch=master)](https://travis-ci.org/codedge-llc/pigeon)
 [![Hex.pm](http://img.shields.io/hexpm/v/pigeon.svg)](https://hex.pm/packages/pigeon) [![Hex.pm](http://img.shields.io/hexpm/dt/pigeon.svg)](https://hex.pm/packages/pigeon)
+[![Deps Status](https://beta.hexfaktor.org/badge/all/github/codedge-llc/pigeon.svg)](https://beta.hexfaktor.org/github/codedge-llc/pigeon)
 # Pigeon
 HTTP2-compliant wrapper for sending iOS and Android push notifications.
 
 ## Installation
-Add pigeon as a `mix.exs` dependency:
-
 **Note: Pigeon's API will likely change until v1.0**
+
+Add pigeon and chatterbox as `mix.exs` dependencies:
   ```elixir
   def deps do
-    [{:pigeon, "~> 0.7.0"}]
+    [
+      {:pigeon, "~> 0.8.0"},
+      {:chatterbox, github: "joedevivo/chatterbox"}
+    ]
   end
   ```
   
@@ -30,8 +34,8 @@ After running `mix deps.get`, configure `mix.exs` to start the application autom
   
 2. Create a notification packet. 
   ```elixir
-  data = %{ message: "your message" }
-  n = Pigeon.GCM.Notification.new(data, "your device registration ID")
+  msg = %{ "body" => "your message" }
+  n = Pigeon.GCM.Notification.new("your device registration ID", msg)
   ```
  
 3. Send the packet.
@@ -42,8 +46,8 @@ After running `mix deps.get`, configure `mix.exs` to start the application autom
 ### Sending to Multiple Registration IDs
 Pass in a list of registration IDs, as many as you want. IDs will automatically be chunked into sets of 1000 before sending the push (as per GCM guidelines).
   ```elixir
-  data = %{ message: "your message" }
-  n = Pigeon.GCM.Notification.new(data, ["first ID", "second ID"])
+  msg = %{ "body" => "your message" }
+  n = Pigeon.GCM.Notification.new(["first ID", "second ID"], msg)
   ```
 
 
@@ -51,13 +55,29 @@ Pass in a list of registration IDs, as many as you want. IDs will automatically 
 When using `Pigeon.GCM.Notification.new/2`, `message_id` and `updated_registration` will always be `nil`. These keys are set in the response callback. `registration_id` can either be a single string or a list of strings.
 ```elixir
 %Pigeon.GCM.Notification{
-    data: nil,
+    payload: %{},
     message_id: nil,
     registration_id: nil,
     updated_registration_id: nil
 }
 ```
 
+### Notifications with Custom Data
+GCM accepts both `notification` and `data` keys in its JSON payload. Set them like so:
+```elixir
+  notification = %{ "body" => "your message" }
+  data = %{ "key" => "value" }
+  Pigeon.GCM.Notification.new("registration ID", notification, data)
+```
+
+or
+
+```elixir
+  	Pigeon.GCM.Notification.new("registration ID")
+  	|> put_notification(%{ "body" => "your message" })
+  	|> put_data(%{ "key" => "value" })
+```
+ 
 ## APNS (Apple iOS)
 ### Usage
 1. Set your environment variables. See below for setting up your certificate and key.
@@ -87,6 +107,7 @@ When using `Pigeon.GCM.Notification.new/2`, `message_id` and `updated_registrati
 The contents of `payload` is what will be received on the iOS device. If updating this field directly, use strings for your keys. It is recommended to use the convenience functions defined in *Notifications with Custom Data*. `expiration` is a UNIX epoch date in seconds (UTC). Passing a value of `0` expires the notification immediately and Apple will not attempt to redeliver it.
 ```elixir
 %Pigeon.APNS.Notification{
+    id: nil,
     device_token: nil,
     topic: nil,
     expiration: nil,
